@@ -1,0 +1,99 @@
+name: Build Personal Android APK
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'app/**'
+      - '.github/workflows/build-android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Standalone Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    env:
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up runner disk space for Android NDK/SDK
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk/25* /usr/local/lib/android/sdk/ndk/26* || true
+          df -h
+
+      - name: Setup Node.js 24 (required by React Native 0.88 / Expo SDK 58)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Setup JDK 21 (required by AGP 9.2 / Gradle 9.4)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Setup Gradle Cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci || npm install
+
+      - name: Typecheck TypeScript
+        working-directory: app
+        run: npx tsc --noEmit
+
+      - name: Generate native Android project (Expo Prebuild)
+        working-directory: app
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Tune Gradle memory & arm64-v8a target for fast cloud build
+        run: |
+          sed -i 's/-Xmx2048m/-Xmx4096m/g' app/android/gradle.properties
+          sed -i 's/MaxMetaspaceSize=512m/MaxMetaspaceSize=1024m/g' app/android/gradle.properties
+          sed -i 's/reactNativeArchitectures=.*/reactNativeArchitectures=arm64-v8a/g' app/android/gradle.properties
+          sed -i 's/android.enableMinifyInReleaseBuilds=true/android.enableMinifyInReleaseBuilds=false/g' app/android/gradle.properties
+
+      - name: Build Standalone Release APK
+        working-directory: app/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Copy & verify APK output
+        run: |
+          APK_PATH=$(find app/android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "Found APK: $APK_PATH"
+          cp "$APK_PATH" ./公考朱批录_v1.0.0.apk
+          ls -lh ./公考朱批录_v1.0.0.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-kaogong-android-apk
+          path: ./公考朱批录_v1.0.0.apk
+          retention-days: 30
+
+      - name: Publish Latest Pre-release on GitHub Releases (Optional convenience)
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: v1.0.0-latest
+          name: "公考朱批录 Android 安装包 (最新自动构建)"
+          prerelease: true
+          files: ./公考朱批录_v1.0.0.apk

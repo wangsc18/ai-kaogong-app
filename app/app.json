@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "公考朱批录",
+    "slug": "ai-kaogong-notebook",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.personal.aikaogong",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#EEF2FF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-sharing",
+      "expo-document-picker",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "用于拍摄纸质公考试卷中的错题、图表材料或参考解析",
+          "photosPermission": "用于从相册导入粉笔等刷题软件的错题截图"
+        }
+      ],
+      "expo-asset",
+      "./plugins/withCleartextTraffic"
+    ]
+  }
+}
